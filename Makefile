@@ -31,6 +31,8 @@ endef # get_service
 VERIFY_CLUSTER = _verify_cluster
 endif # TARGET
 
+CACHE_ENABLED := $(or ${CACHE_ENABLED},True)
+
 ASSISTED_ORG := $(or ${ASSISTED_ORG},quay.io/ocpmetal)
 ASSISTED_TAG := $(or ${ASSISTED_TAG},latest)
 
@@ -174,8 +176,12 @@ _verify_minikube:
 	minikube -p $(PROFILE) update-context
 	minikube -p $(PROFILE) status
 
-deploy-all: $(BUILD_FOLDER) $(VERIFY_CLUSTER) deploy-namespace deploy-postgres deploy-s3 deploy-ocm-secret deploy-route53 deploy-service
+deploy-all: $(BUILD_FOLDER) $(VERIFY_CLUSTER) deploy-namespace deploy-squid deploy-postgres deploy-s3 deploy-ocm-secret deploy-route53 deploy-service
 	echo "Deployment done"
+
+deploy-squid:
+	python3 ./tools/deploy_squid.py --target "$(TARGET)" --domain "$(INGRESS_DOMAIN)" --namespace "$(NAMESPACE)" --profile "$(PROFILE)"
+
 
 deploy-ui: deploy-namespace
 	python3 ./tools/deploy_ui.py --target "$(TARGET)" --domain "$(INGRESS_DOMAIN)" --namespace "$(NAMESPACE)" \
@@ -211,7 +217,8 @@ deploy-service-requirements: deploy-namespace deploy-inventory-service-file
 		$(INSTALLATION_TIMEOUT_FLAG) $(DEPLOY_TAG_OPTION) --auth-type "$(AUTH_TYPE)" --with-ams-subscriptions "$(WITH_AMS_SUBSCRIPTIONS)" $(TEST_FLAGS) \
 		--ocp-versions '$(subst ",\",$(OPENSHIFT_VERSIONS))' --public-registries "$(PUBLIC_CONTAINER_REGISTRIES)" \
 		--check-cvo $(CHECK_CLUSTER_VERSION) --apply-manifest $(APPLY_MANIFEST) $(ENABLE_KUBE_API_CMD) $(E2E_TESTS_CONFIG) \
-		--ipv6-support $(IPV6_SUPPORT)
+		--ipv6-support $(IPV6_SUPPORT) \
+		--cache-enabled $(CACHE_ENABLED) \
 
 deploy-resources: generate-manifests
 	python3 ./tools/deploy_crd.py $(ENABLE_KUBE_API_CMD) --apply-manifest $(APPLY_MANIFEST) --profile "$(PROFILE)" --target "$(TARGET)"

@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squid-cm
+  namespace: REPLACE_NAMESPACE
+data:
+  squid.conf: |
+    http_access allow all
+
+    http_port 3128
+
+    cache_dir ufs /var/spool/squid 100 16 256
+    refresh_pattern .*\.(iso) 2880  0% 2880 override-expire ignore-no-cache ignore-no-store ignore-private
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: squid
+  namespace: REPLACE_NAMESPACE
+  labels:
+    app: squid
+spec:
+  containers:
+    - name: squid
+      image: sameersbn/squid:3.5.27-2
+      ports:
+        - containerPort: 3128
+          protocol: TCP
+      volumeMounts:
+        - mountPath: /var/spool/squid
+          name: cache
+        - mountPath: /etc/squid
+          name: config
+  volumes:
+    - name: cache
+      hostPath:
+        path: /data
+        type: DirectoryOrCreate
+    - name: config
+      configMap:
+        name: squid-cm
+        items:
+          - key: squid.conf
+            path: squid.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: squid
+  name: squid
+  namespace: REPLACE_NAMESPACE
+spec:
+  ports:
+    - name: squid
+      port: 3128
+      protocol: TCP
+  selector:
+    app: squid
+  type: LoadBalancer
